@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef2f8" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Світло">
+<title>Світло</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1020'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%2334406b' stroke-width='5'/%3E%3Cpath d='M16 6a10 10 0 0 1 10 10' fill='none' stroke='%23ffc24b' stroke-width='5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: one column of address cards; each card is a 24-hour dial with the now-hand, phone first */
+:root{
+  --bg:#0b1020; --bg-2:#121830; --surface:#151c33; --line:#263052;
+  --fg:#eef1fa; --fg-dim:#a6b0c8; --fg-faint:#7a85a2;
+  --lamp:#ffc24b; --lamp-ink:#ffc24b; --lamp-soft:#ffc24b26; --unlit:#34406b;
+  --alarm:#ff6b57; --warn:#ff9a3d; --on-lamp:#1b1400;
+  --display:'Unbounded','Segoe UI',system-ui,sans-serif;
+  --sans:'Inter','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#eef2f8; --bg-2:#e3e9f3; --surface:#ffffff; --line:#d2d9e8;
+    --fg:#121933; --fg-dim:#48526b; --fg-faint:#667090;
+    --lamp:#f2a900; --lamp-ink:#8a5a00; --lamp-soft:#f2a90026; --unlit:#34406b;
+    --alarm:#d0381f; --warn:#b85f00; --on-lamp:#1b1400;
+    color-scheme:light;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;color:var(--fg);font:400 20px/1.55 var(--sans);
+  background:radial-gradient(120% 60% at 50% -10%,var(--lamp-soft),transparent 60%) no-repeat,var(--bg);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:1.25rem;
+  padding-block:max(1.5rem,env(safe-area-inset-top,0px)) max(3rem,env(safe-area-inset-bottom,0px))}
+p{margin:0}
+a{color:var(--lamp-ink);text-underline-offset:3px}
+strong{font-weight:600}
+h1,h2{font-family:var(--display);font-weight:700;margin:0;letter-spacing:-.01em;text-wrap:balance}
+
+header.top{display:flex;flex-direction:column;gap:.4rem}
+h1{font-size:2.4rem;line-height:1.1;display:flex;align-items:center;gap:.7rem}
+h1 .bulb{width:.62em;height:.62em;border-radius:50%;background:var(--lamp);box-shadow:0 0 24px 6px var(--lamp-soft),0 0 8px 1px var(--lamp)}
+.sub{color:var(--fg-dim)}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1rem;font-size:16px;color:var(--fg-faint);font-variant-numeric:tabular-nums}
+.meta strong{color:var(--fg-dim)}
+.meta .warn{color:var(--warn);font-weight:600}
+
+button{font:600 18px/1 var(--sans);min-height:48px;padding:0 1.15rem;border-radius:14px;
+  border:1px solid var(--line);background:var(--bg-2);color:var(--fg);cursor:pointer}
+button.primary{background:var(--lamp);border-color:var(--lamp);color:var(--on-lamp)}
+button.danger{background:transparent;border-color:var(--alarm);color:var(--alarm)}
+button.small{min-height:40px;font-size:16px;padding:0 .9rem;border-radius:12px}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:3px solid var(--lamp);outline-offset:2px}
+
+.banner{border-radius:20px;padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.5rem;
+  border:1px solid var(--line);background:var(--surface)}
+.banner.now{border-color:var(--alarm);background:color-mix(in srgb,var(--alarm) 14%,var(--surface))}
+.banner.soon{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--surface))}
+.banner .label{font:700 13px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:.5rem}
+.banner.now .label{color:var(--alarm)}
+.banner.soon .label{color:var(--warn)}
+.banner.calm .label{color:var(--fg-faint)}
+.banner.now .label::before{content:"";width:.6rem;height:.6rem;border-radius:50%;background:var(--alarm);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+.banner ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.35rem}
+.banner li{font-size:1.25rem;line-height:1.4;font-variant-numeric:tabular-nums}
+
+#cards{display:flex;flex-direction:column;gap:1.25rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:1.25rem;
+  display:flex;flex-direction:column;gap:1.25rem;min-width:0}
+.card.u-now{border-color:var(--alarm);box-shadow:0 0 0 1px var(--alarm)}
+.card.u-soon{border-color:var(--warn)}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.8rem}
+.card-head > div{min-width:0}
+.card h2{font-size:1.6rem;line-height:1.2}
+.addr{color:var(--fg-dim);overflow-wrap:anywhere}
+.queue{flex:none;font:700 15px/1 var(--display);letter-spacing:.02em;padding:.6rem .8rem;border-radius:999px;
+  background:var(--lamp-soft);color:var(--lamp-ink);white-space:nowrap}
+
+.now-row{display:grid;gap:1.25rem;align-items:center}
+@media(min-width:640px){.now-row{grid-template-columns:340px 1fr}}
+.dial{position:relative;width:min(100%,340px);aspect-ratio:1;margin:0 auto}
+.dial svg{position:absolute;inset:0;width:100%;height:100%}
+.seg{fill:none;stroke-width:26;stroke:var(--line)}
+.seg.on{stroke:var(--lamp)}
+.seg.off{stroke:var(--unlit)}
+.seg.maybe{stroke:var(--lamp);stroke-opacity:.35;stroke-dasharray:3 3}
+.tick{fill:var(--fg-faint)}
+.tick-label{font:500 13px var(--sans);fill:var(--fg-faint);text-anchor:middle;dominant-baseline:central}
+.hand{stroke:var(--fg);stroke-width:4;stroke-linecap:round}
+.hand-dot{fill:var(--fg);stroke:var(--surface);stroke-width:3}
+.dial-center{position:absolute;inset:28%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.25rem}
+.dial-center .lbl{font:700 12px/1.2 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-dim)}
+.dial-center .big{font:700 1.75rem/1.05 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.02em;display:flex;flex-direction:column;align-items:center}
+.dial-center .big span{white-space:nowrap}
+.dial-center .big.long{font-size:1.3rem}
+.dial-center .small{font-size:15px;line-height:1.3;color:var(--fg-faint);font-variant-numeric:tabular-nums}
+.st-on .dial-center .lbl{color:var(--lamp-ink)}
+.st-off .dial-center .lbl,.st-off .dial-center .big{color:var(--alarm)}
+
+.headline{font:700 1.9rem/1.15 var(--display);letter-spacing:-.01em}
+.st-off .headline{color:var(--alarm)}
+.detail{font-size:1.3rem;line-height:1.4;color:var(--fg-dim);font-variant-numeric:tabular-nums;margin-top:.35rem}
+
+.day{display:flex;flex-direction:column;gap:.7rem}
+.day h3{font:700 1.15rem/1.3 var(--display);color:var(--fg);margin:0}
+.day .note{color:var(--fg-dim)}
+
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+.tl li{display:grid;grid-template-columns:1fr auto;grid-template-areas:"time badge" "what what";align-items:center;
+  column-gap:.9rem;padding:.6rem .9rem;border-radius:14px;border-left:8px solid var(--line)}
+.tl .time{grid-area:time;font:600 1.35rem/1.25 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tl .what{grid-area:what;color:var(--fg-dim)}
+.tl .badge{grid-area:badge;font:700 12px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;
+  padding:.4rem .55rem;border-radius:6px;background:var(--fg);color:var(--bg)}
+.tl li.on{border-left-color:var(--lamp)}
+.tl li.on .time{font-weight:500;color:var(--fg-dim)}
+.tl li.off{border-left-color:var(--unlit);background:color-mix(in srgb,var(--unlit) 38%,var(--surface))}
+.tl li.off .what{color:var(--fg);font-weight:600}
+.tl li.maybe{border-left-style:dashed;border-left-color:var(--lamp);background:var(--bg-2)}
+.tl li.past{opacity:.4}
+.tl li.current{outline:2px solid var(--fg);outline-offset:-2px}
+@media(min-width:640px){.tl li{grid-template-columns:13rem 1fr auto;grid-template-areas:"time what badge"}}
+
+.legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem 1rem;font-size:16px;color:var(--fg-dim);margin-top:.6rem}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.legend i{width:1rem;height:1rem;border-radius:4px;background:var(--line)}
+.legend i.on{background:var(--lamp)}
+.legend i.off{background:var(--unlit)}
+.legend i.maybe{background:repeating-linear-gradient(135deg,var(--lamp) 0 2px,transparent 2px 4px)}
+.none{color:var(--fg-dim)}
+
+.card-foot{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;border-top:1px solid var(--line);padding-top:1rem}
+.card-foot .ask{flex-basis:100%}
+
+form.card label{font:600 16px var(--sans);color:var(--fg-dim);display:block;margin-bottom:.35rem}
+form.card input,form.card select{width:100%;min-height:54px;font:400 20px var(--sans);color:var(--fg);
+  background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:0 .9rem}
+.hint{color:var(--fg-dim)}
+.row{display:flex;gap:.6rem;flex-wrap:wrap}
+
+footer.src{font-size:16px;color:var(--fg-faint);line-height:1.5}
+@media(max-width:400px){h1{font-size:2rem}.dial-center .big{font-size:1.8rem}.headline{font-size:1.6rem}}
+@media(prefers-reduced-motion:reduce){.banner.now .label::before{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1><span class="bulb" aria-hidden="true"></span>Світло</h1>
+    <p class="sub">Графік відключень ДТЕК для ваших адрес.</p>
+    <div class="meta" id="meta">Завантажую графік…</div>
+  </header>
+  <div id="banner"></div>
+  <div id="cards"></div>
+  <div id="editor"></div>
+  <footer class="src">
+    Дані: сторінки відключень ДТЕК для Дніпра, Києва, Київщини й Одеси. Кожні кілька хвилин їх збирає
+    <a href="https://github.com/Baskerville42/outage-data-ua" target="_blank" rel="noopener">outage-data-ua</a>.
+    Ваші адреси зберігаються лише в цьому браузері.
+  </footer>
+</div>
+<script>
+'use strict';
+const FEED_BASE = 'https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/data/';
+const REGIONS = {
+  dnipro: {name: 'Дніпро та область', short: 'Дніпро', dtek: 'https://www.dtek-dnem.com.ua/ua/shutdowns'},
+  kyiv: {name: 'Київ', short: 'Київ', dtek: 'https://www.dtek-kem.com.ua/ua/shutdowns'},
+  'kyiv-region': {name: 'Київська область', short: 'Київщина', dtek: 'https://www.dtek-krem.com.ua/ua/shutdowns'},
+  odesa: {name: 'Одеса та область', short: 'Одеса', dtek: 'https://www.dtek-oem.com.ua/ua/shutdowns'},
+};
+const KEY_ADDR = 'svitlo.addresses.v1';
+const KEY_FEED = 'svitlo.feed.v1';
+const KEY_FEEDS = 'svitlo.feeds.v2';
+const TZ = 'Europe/Kyiv';
+
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+let addresses = (Array.isArray(store.get(KEY_ADDR)) ? store.get(KEY_ADDR) : [])
+  .map(a => (REGIONS[a.region] ? a : {...a, region: 'dnipro'}));
+let feeds = store.get(KEY_FEEDS) || {};
+if (!feeds.dnipro && store.get(KEY_FEED)) feeds.dnipro = store.get(KEY_FEED);
+let fetchState = 'idle';
+let editingId = addresses.length ? null : 'new';
+let formRegion = addresses.at(-1)?.region || 'dnipro';
+let confirmId = null;
+
+function usedRegions() {
+  const set = new Set(addresses.map(a => a.region));
+  if (editingId != null) set.add(formRegion);
+  if (!set.size) set.add(formRegion);
+  return [...set];
+}
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
+const partsFmt = new Intl.DateTimeFormat('en-GB', {timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
+function kyiv(ms) {
+  const p = {};
+  for (const x of partsFmt.formatToParts(new Date(ms))) if (x.type !== 'literal') p[x.type] = x.value;
+  return {date: `${p.year}-${p.month}-${p.day}`, h: +p.hour, m: +p.minute};
+}
+function addDays(date, n) {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+function weekday(date) {
+  const [y, m, d] = date.split('-').map(Number);
+  return ((new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7) + 1;
+}
+function longDate(date) {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat('uk-UA', {timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long'}).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function factDay(region, group, date) {
+  const data = region?.fact?.data || {};
+  for (const key of Object.keys(data)) {
+    if (kyiv(Number(key) * 1000).date === date && data[key]?.[group]) return {kind: 'fact', hours: data[key][group]};
+  }
+  return null;
+}
+function planDay(region, group, date) {
+  const hours = region?.preset?.data?.[group]?.[weekday(date)];
+  return hours ? {kind: 'plan', hours} : null;
+}
+
+const HALF = {yes: ['on', 'on'], no: ['off', 'off'], first: ['off', 'on'], second: ['on', 'off'],
+  maybe: ['maybe', 'maybe'], mfirst: ['maybe', 'on'], msecond: ['on', 'maybe']};
+function halves(hours) {
+  const out = [];
+  for (let h = 1; h <= 24; h++) out.push(...(HALF[hours?.[h]] || ['unknown', 'unknown']));
+  return out;
+}
+const hm = i => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
+function dur(min) {
+  if (min < 60) return `${min} хв`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} год ${m} хв` : `${h} год`;
+}
+function parts(min) {
+  if (min < 60) return [`${min} хв`];
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? [`${h} год`, `${m} хв`] : [`${h} год`];
+}
+
+function statusFor(region, group, now) {
+  const k = kyiv(now);
+  const today = factDay(region, group, k.date) || planDay(region, group, k.date);
+  const tomDate = addDays(k.date, 1);
+  const tomFact = factDay(region, group, tomDate);
+  const tomorrow = tomFact || planDay(region, group, tomDate);
+  const hs = halves(today?.hours);
+  const seq = tomFact ? hs.concat(halves(tomFact.hours)) : hs;
+  const nowMin = k.h * 60 + k.m;
+  const idx = Math.floor(nowMin / 30);
+  const at = j => (j < 48 ? `о ${hm(j)}` : j === 48 ? 'опівночі' : `завтра о ${hm(j - 48)}`);
+  const until = j => (j < 48 ? `до ${hm(j)}` : j === 48 ? 'до півночі' : `до ${hm(j - 48)} завтра`);
+  const inMin = j => j * 30 - nowMin;
+  const s = {k, today, tomorrow, tomDate, hs, idx, nowMin, state: hs[idx], urgency: null};
+
+  if (s.state === 'off') {
+    let j = idx;
+    while (j < seq.length && seq[j] === 'off') j++;
+    s.headline = 'Світла немає';
+    s.urgency = 'now';
+    if (j < seq.length) {
+      s.back = at(j);
+      s.detail = `Світло повернеться ${at(j)}, через ${dur(inMin(j))}.`;
+      s.center = {lbl: 'Світла немає', big: parts(inMin(j)), small: until(j)};
+    } else {
+      s.detail = tomFact ? 'Світла не буде до кінця завтрашнього дня.' : 'Світла не буде до півночі. Графік на завтра ще не опубліковано.';
+      s.center = {lbl: 'Світла немає', big: ['до 24:00'], small: 'далі невідомо'};
+    }
+    return s;
+  }
+  s.headline = {on: 'Світло є', maybe: 'Можливе відключення'}[s.state] || 'Немає даних';
+  const lbl = s.headline;
+  let j = idx + 1;
+  while (j < seq.length && seq[j] !== 'off') j++;
+  if (j < seq.length) {
+    s.nextAt = at(j);
+    s.nextIn = inMin(j);
+    s.detail = `Наступне відключення ${at(j)}, через ${dur(inMin(j))}.`;
+    s.center = {lbl, big: parts(inMin(j)), small: `до відключення ${at(j)}`};
+    if (s.nextIn <= 60) s.urgency = 'soon';
+  } else if (s.state === 'maybe') {
+    let e = idx;
+    while (e < seq.length && seq[e] === 'maybe') e++;
+    s.detail = `Можливе відключення ${until(e)}. ДТЕК його не підтвердив.`;
+    s.center = {lbl, big: parts(inMin(e)), small: until(e)};
+  } else {
+    let m = idx + 1;
+    while (m < seq.length && seq[m] !== 'maybe') m++;
+    const end = tomFact ? 'кінця завтрашнього дня' : 'півночі';
+    if (m < seq.length) {
+      s.detail = `Підтверджених відключень немає до ${end}. Можливе відключення ${at(m)}.`;
+      s.center = {lbl, big: [until(m)], small: 'далі можливе відключення'};
+    } else {
+      s.detail = tomFact ? 'Відключень немає до кінця завтрашнього дня.' : 'Сьогодні відключень більше немає.';
+      s.center = {lbl, big: ['до 24:00'], small: 'без відключень'};
+    }
+  }
+  return s;
+}
+
+function dial(s) {
+  const C = 120, R = 92;
+  const pt = (deg, r) => [C + r * Math.sin(deg * Math.PI / 180), C - r * Math.cos(deg * Math.PI / 180)];
+  const f = n => n.toFixed(2);
+  let svg = '';
+  s.hs.forEach((v, i) => {
+    const [x0, y0] = pt(i * 7.5 + 0.7, R), [x1, y1] = pt((i + 1) * 7.5 - 0.7, R);
+    svg += `<path class="seg ${v}" d="M${f(x0)} ${f(y0)}A${R} ${R} 0 0 1 ${f(x1)} ${f(y1)}"/>`;
+  });
+  for (let h = 0; h < 24; h++) {
+    const [x, y] = pt(h * 15, R - 22);
+    svg += `<circle class="tick" cx="${f(x)}" cy="${f(y)}" r="${h % 6 ? 1.3 : 2.4}"/>`;
+  }
+  for (const h of [0, 6, 12, 18]) {
+    const side = h === 6 ? 'start' : h === 18 ? 'end' : 'middle';
+    const [x, y] = pt(h * 15, side === 'middle' ? R + 25 : R + 19);
+    svg += `<text class="tick-label" style="text-anchor:${side}" x="${f(x)}" y="${f(y)}">${String(h).padStart(2, '0')}:00</text>`;
+  }
+  const deg = s.nowMin / 1440 * 360;
+  const [ix, iy] = pt(deg, R - 17), [ox, oy] = pt(deg, R + 17);
+  svg += `<line class="hand" x1="${f(ix)}" y1="${f(iy)}" x2="${f(ox)}" y2="${f(oy)}"/><circle class="hand-dot" cx="${f(ox)}" cy="${f(oy)}" r="5"/>`;
+  const c = s.center;
+  return `<div><div class="dial" role="img" aria-label="${esc(`${c.lbl}. ${s.detail}`)}">
+    <svg viewBox="-36 -36 312 312" aria-hidden="true">${svg}</svg>
+    <div class="dial-center" aria-hidden="true"><span class="lbl">${esc(c.lbl)}</span><span class="big${c.big.some(p => p.length > 5) ? ' long' : ''}">${c.big.map(p => `<span>${esc(p)}</span>`).join('')}</span><span class="small">${esc(c.small)}</span></div>
+  </div>
+  <div class="legend" aria-hidden="true"><span><i class="on"></i>світло є</span><span><i class="off"></i>світла немає</span><span><i class="maybe"></i>можливе відключення</span></div></div>`;
+}
+
+const WHAT = {on: 'Світло є', off: 'Світла немає', maybe: 'Можливе відключення', unknown: 'Немає даних'};
+function dayBlock(title, day, nowIdx = null) {
+  if (!day) return `<section class="day"><h3>${esc(title)}</h3><p class="none">Для цієї черги графіка немає.</p></section>`;
+  const hs = halves(day.hours);
+  const note = day.kind === 'fact' ? '' : '<p class="note">ДТЕК ще не опублікував графік на цей день. Нижче тижневий план можливих відключень.</p>';
+  let rows = '';
+  for (let i = 0; i < hs.length;) {
+    let j = i;
+    while (j < hs.length && hs[j] === hs[i]) j++;
+    const cls = [hs[i]];
+    let badge = '';
+    if (nowIdx != null && j <= nowIdx) cls.push('past');
+    if (nowIdx != null && i <= nowIdx && nowIdx < j) { cls.push('current'); badge = '<span class="badge">зараз</span>'; }
+    rows += `<li class="${cls.join(' ')}"><span class="time">${hm(i)} – ${hm(j)}</span><span class="what">${WHAT[hs[i]]} · ${dur((j - i) * 30)}</span>${badge}</li>`;
+    i = j;
+  }
+  return `<section class="day"><h3>${esc(title)}</h3>${note}<ol class="tl">${rows}</ol></section>`;
+}
+
+function queueName(group, region) {
+  const raw = feeds[region]?.data?.preset?.sch_names?.[group];
+  if (raw) return raw;
+  const m = /^GPV(\d+\.\d+)$/.exec(group);
+  return m ? `Черга ${m[1]}` : group;
+}
+function regionOptions(selected) {
+  return Object.entries(REGIONS).map(([id, r]) => `<option value="${id}"${id === selected ? ' selected' : ''}>${esc(r.name)}</option>`).join('');
+}
+function queueOptions(selected, region) {
+  const names = feeds[region]?.data?.preset?.sch_names;
+  const groups = names ? Object.keys(names) : [];
+  if (!groups.length) for (let a = 1; a <= 6; a++) for (const b of [1, 2]) groups.push(`GPV${a}.${b}`);
+  const n = g => /^GPV(\d+)\.(\d+)$/.exec(g)?.slice(1).map(Number) || [9999, 0];
+  groups.sort((x, y) => n(x)[0] - n(y)[0] || n(x)[1] - n(y)[1]);
+  return `<option value="" disabled${selected ? '' : ' selected'}>Оберіть чергу</option>` +
+    groups.map(g => `<option value="${esc(g)}"${g === selected ? ' selected' : ''}>${esc(queueName(g, region))}</option>`).join('');
+}
+
+function renderMeta(now) {
+  const el = document.getElementById('meta');
+  const used = usedRegions().filter(r => feeds[r]);
+  if (!used.length) {
+    el.innerHTML = fetchState === 'offline'
+      ? '<span class="warn">Не вдалося завантажити графік. Перевірте з’єднання й оновіть.</span><button class="small" data-act="refresh">Оновити</button>'
+      : 'Завантажую графік…';
+    return;
+  }
+  const oldest = Math.min(...used.map(r => feeds[r].fetchedAt));
+  const ago = Math.max(0, Math.round((now - oldest) / 60000));
+  const updates = used.map(r => `${used.length > 1 ? `${REGIONS[r].short} ` : 'ДТЕК оновив '}<strong>${esc(feeds[r].data.fact?.update || '?')}</strong>`);
+  const bits = [...updates, `перевірено ${ago < 1 ? 'щойно' : `${dur(ago)} тому`}`];
+  if (fetchState === 'offline') bits.push('<span class="warn">немає зв’язку, показано збережені дані</span>');
+  if (used.some(r => feeds[r].data.lastUpdateStatus?.ok === false)) bits.push('<span class="warn">останній збір даних не вдався</span>');
+  const busy = fetchState === 'loading';
+  el.innerHTML = `<span>${bits.join(' · ')}</span><button class="small" data-act="refresh"${busy ? ' disabled' : ''}>${busy ? 'Оновлюю…' : 'Оновити'}</button>`;
+}
+
+function renderBanner(list) {
+  const el = document.getElementById('banner');
+  if (!list.some(x => x.s)) { el.innerHTML = ''; return; }
+  const now = list.filter(x => x.s?.urgency === 'now');
+  const soon = list.filter(x => x.s?.urgency === 'soon');
+  if (!now.length && !soon.length) {
+    el.innerHTML = '<div class="banner calm"><span class="label">Найближча година</span><ul><li>Найближчу годину відключень немає за жодною адресою.</li></ul></div>';
+    return;
+  }
+  const lines = [
+    ...now.map(({a, s}) => `<li><strong>${esc(a.name)}</strong>: світла немає, ${s.back ? `повернеться ${s.back}` : 'не буде до півночі'}.</li>`),
+    ...soon.map(({a, s}) => `<li><strong>${esc(a.name)}</strong>: відключення ${s.nextAt}, через ${dur(s.nextIn)}.</li>`),
+  ].join('');
+  el.innerHTML = `<div class="banner ${now.length ? 'now' : 'soon'}" role="status"><span class="label">${now.length ? 'Зараз без світла' : 'Відключення протягом години'}</span><ul>${lines}</ul></div>`;
+}
+
+function renderCards(list) {
+  document.getElementById('cards').innerHTML = list.map(({a, s}) => {
+    const urg = s?.urgency ? ` u-${s.urgency}` : '';
+    const body = s ? `
+      <div class="now-row st-${esc(s.state)}">${dial(s)}
+        <div><p class="headline">${s.headline}</p><p class="detail">${s.detail}</p></div></div>
+      ${dayBlock(`Сьогодні, ${longDate(s.k.date)}`, s.today, s.idx)}
+      ${dayBlock(`Завтра, ${longDate(s.tomDate)}`, s.tomorrow)}`
+      : '<p class="none">Чекаю на графік…</p>';
+    const foot = confirmId === a.id
+      ? `<p class="ask">Видалити <strong>${esc(a.name)}</strong> зі сторінки?</p>
+         <button class="danger" data-act="del-yes">Видалити</button><button data-act="del-no">Скасувати</button>`
+      : '<button data-act="edit">Редагувати</button><button data-act="del">Видалити</button>';
+    return `<article class="card${urg}" data-id="${esc(a.id)}">
+      <div class="card-head"><div><h2>${esc(a.name)}</h2><p class="addr">${esc([REGIONS[a.region].short, a.addr].filter(Boolean).join(' · '))}</p></div>
+        <span class="queue">${esc(queueName(a.queue, a.region))}</span></div>
+      ${body}
+      <div class="card-foot">${foot}</div></article>`;
+  }).join('');
+}
+
+function renderEditor() {
+  const el = document.getElementById('editor');
+  if (editingId == null) {
+    el.innerHTML = '<button class="primary" data-act="add" style="width:100%">Додати адресу</button>';
+    return;
+  }
+  const a = addresses.find(x => x.id === editingId) || {name: '', addr: '', queue: ''};
+  const isNew = editingId === 'new';
+  const queue = a.region === formRegion ? a.queue : '';
+  el.innerHTML = `<form class="card" data-id="${esc(editingId)}" autocomplete="off">
+    <h2>${isNew ? 'Нова адреса' : `Редагувати: ${esc(a.name)}`}</h2>
+    <div><label for="f-region">Регіон</label>
+      <select id="f-region" name="region">${regionOptions(formRegion)}</select></div>
+    <div><label for="f-name">Назва</label>
+      <input id="f-name" name="name" required maxlength="40" placeholder="Дім" value="${esc(a.name)}"></div>
+    <div><label for="f-addr">Адреса</label>
+      <input id="f-addr" name="addr" maxlength="120" placeholder="Дніпро, вулиця й будинок" value="${esc(a.addr)}"></div>
+    <div><label for="f-queue">Черга</label>
+      <select id="f-queue" name="queue" required>${queueOptions(queue, formRegion)}</select></div>
+    <p class="hint">Не знаєте свою чергу? Один раз знайдіть адресу на
+      <a id="f-dtek" href="${REGIONS[formRegion].dtek}" target="_blank" rel="noopener">сторінці відключень ДТЕК</a>. Там буде вказано чергу будинку, наприклад «Черга 3.1».</p>
+    <div class="row"><button type="submit" class="primary">Зберегти</button>
+      ${addresses.length ? '<button type="button" data-act="cancel">Скасувати</button>' : ''}</div>
+  </form>`;
+}
+
+function render() {
+  const now = Date.now();
+  const list = addresses.map(a => ({a, s: feeds[a.region] ? statusFor(feeds[a.region].data, a.queue, now) : null}));
+  renderMeta(now);
+  renderBanner(list);
+  renderCards(list);
+}
+
+async function loadRegion(region) {
+  try {
+    const res = await fetch(`${FEED_BASE}${region}.json`, {cache: 'no-cache'});
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    if (!data?.fact || !data?.preset) throw new Error('unexpected data');
+    feeds[region] = {data, fetchedAt: Date.now()};
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function syncQueueOptions() {
+  const q = document.getElementById('f-queue');
+  if (!q) return;
+  const html = queueOptions(q.value, formRegion);
+  if (q.options.length !== html.split('<option').length - 1) q.innerHTML = html;
+}
+
+async function refresh() {
+  fetchState = 'loading';
+  render();
+  const results = await Promise.all(usedRegions().map(loadRegion));
+  fetchState = results.every(Boolean) ? 'ok' : 'offline';
+  store.set(KEY_FEEDS, feeds);
+  render();
+  syncQueueOptions();
+}
+
+function save() { store.set(KEY_ADDR, addresses); }
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act;
+  const id = b.closest('[data-id]')?.dataset.id;
+  if (act === 'refresh') { refresh(); return; }
+  if (act === 'add') { editingId = 'new'; formRegion = addresses.at(-1)?.region || formRegion; }
+  if (act === 'edit') { editingId = id; confirmId = null; formRegion = addresses.find(x => x.id === id)?.region || formRegion; }
+  if (act === 'cancel') editingId = null;
+  if (act === 'del') confirmId = id;
+  if (act === 'del-no') confirmId = null;
+  if (act === 'del-yes') {
+    addresses = addresses.filter(x => x.id !== id);
+    confirmId = null;
+    if (editingId === id || !addresses.length) editingId = addresses.length ? null : 'new';
+    save();
+  }
+  render();
+  renderEditor();
+  if (act === 'add' || act === 'edit') {
+    document.querySelector('#editor form')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    document.getElementById('f-name')?.focus({preventScroll: true});
+  }
+});
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target;
+  const fd = new FormData(f);
+  const entry = {name: String(fd.get('name') || '').trim(), addr: String(fd.get('addr') || '').trim(),
+    queue: String(fd.get('queue') || ''), region: String(fd.get('region') || '')};
+  if (!entry.name || !entry.queue || !REGIONS[entry.region]) return;
+  if (f.dataset.id === 'new') addresses.push({id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...entry});
+  else addresses = addresses.map(x => (x.id === f.dataset.id ? {...x, ...entry} : x));
+  editingId = null;
+  save();
+  render();
+  renderEditor();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'f-region' || !REGIONS[e.target.value]) return;
+  formRegion = e.target.value;
+  document.getElementById('f-dtek').href = REGIONS[formRegion].dtek;
+  document.getElementById('f-queue').innerHTML = queueOptions('', formRegion);
+  if (!feeds[formRegion] && await loadRegion(formRegion)) {
+    store.set(KEY_FEEDS, feeds);
+    syncQueueOptions();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  render();
+  const stale = usedRegions().some(r => !feeds[r] || Date.now() - feeds[r].fetchedAt > 2 * 60000);
+  if (stale) refresh();
+});
+
+render();
+renderEditor();
+refresh();
+setInterval(render, 30000);
+setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 5 * 60000);
+</script>
+</body>
+</html>
