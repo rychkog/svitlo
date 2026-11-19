@@ -76,6 +76,18 @@ button:disabled{opacity:.5;cursor:default}
 .banner ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.35rem}
 .banner li{font-size:1.25rem;line-height:1.4;font-variant-numeric:tabular-nums}
 
+.tabs{position:sticky;top:0;z-index:2;display:flex;gap:.5rem;overflow-x:auto;scrollbar-width:none;
+  padding:max(.6rem,env(safe-area-inset-top,0px)) 0 .6rem;margin-block:-.6rem;background:var(--bg);
+  box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax)}
+.tabs:empty{display:none}
+.tab{flex:1 0 auto;display:flex;align-items:center;justify-content:center;gap:.55rem;min-height:52px}
+.tab[aria-selected="true"]{background:var(--surface);border-color:var(--lamp);box-shadow:inset 0 0 0 1px var(--lamp)}
+.tab .nm{max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab .dot{flex:none;width:.75rem;height:.75rem;border-radius:50%;background:var(--line)}
+.tab .dot.on{background:var(--lamp)}
+.tab .dot.off{background:var(--alarm)}
+.tab .dot.soon{background:var(--warn)}
+.tab .dot.maybe{background:transparent;border:2px dashed var(--lamp)}
 #cards{display:flex;flex-direction:column;gap:1.25rem}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:1.25rem;
   display:flex;flex-direction:column;gap:1.25rem;min-width:0}
@@ -163,6 +175,7 @@ footer.src{font-size:16px;color:var(--fg-faint);line-height:1.5}
     <div class="meta" id="meta">Завантажую графік…</div>
   </header>
   <div id="banner"></div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Адреси"></nav>
   <div id="cards"></div>
   <div id="editor"></div>
   <footer class="src">
@@ -198,6 +211,7 @@ let fetchState = 'idle';
 let editingId = addresses.length ? null : 'new';
 let formRegion = addresses.at(-1)?.region || 'dnipro';
 let confirmId = null;
+let activeId = null;
 
 function usedRegions() {
   const set = new Set(addresses.map(a => a.region));
@@ -420,6 +434,16 @@ function renderBanner(list) {
   el.innerHTML = `<div class="banner ${now.length ? 'now' : 'soon'}" role="status"><span class="label">${now.length ? 'Зараз без світла' : 'Відключення протягом години'}</span><ul>${lines}</ul></div>`;
 }
 
+function renderTabs(list) {
+  const el = document.getElementById('tabs');
+  if (list.length < 2) { el.innerHTML = ''; return; }
+  el.innerHTML = list.map(({a, s}) => {
+    const dot = s?.state === 'off' ? 'off' : s?.urgency === 'soon' ? 'soon' : s?.state || '';
+    return `<button class="tab" role="tab" aria-selected="${a.id === activeId}" aria-controls="cards" data-act="tab" data-id="${esc(a.id)}"
+      aria-label="${esc(`${a.name}: ${s?.headline || 'чекаю на графік'}`)}"><span class="dot ${esc(dot)}" aria-hidden="true"></span><span class="nm">${esc(a.name)}</span></button>`;
+  }).join('');
+}
+
 function renderCards(list) {
   document.getElementById('cards').innerHTML = list.map(({a, s}) => {
     const urg = s?.urgency ? ` u-${s.urgency}` : '';
@@ -470,9 +494,11 @@ function renderEditor() {
 function render() {
   const now = Date.now();
   const list = addresses.map(a => ({a, s: feeds[a.region] ? statusFor(feeds[a.region].data, a.queue, now) : null}));
+  if (!list.some(x => x.a.id === activeId)) activeId = list[0]?.a.id ?? null;
   renderMeta(now);
   renderBanner(list);
-  renderCards(list);
+  renderTabs(list);
+  renderCards(list.filter(x => x.a.id === activeId));
 }
 
 async function loadRegion(region) {
@@ -513,6 +539,13 @@ document.addEventListener('click', e => {
   const act = b.dataset.act;
   const id = b.closest('[data-id]')?.dataset.id;
   if (act === 'refresh') { refresh(); return; }
+  if (act === 'tab') {
+    activeId = id;
+    render();
+    const gap = document.getElementById('cards').getBoundingClientRect().top - document.getElementById('tabs').getBoundingClientRect().bottom;
+    if (gap < 0) window.scrollBy({top: gap - 16});
+    return;
+  }
   if (act === 'add') { editingId = 'new'; formRegion = addresses.at(-1)?.region || formRegion; }
   if (act === 'edit') { editingId = id; confirmId = null; formRegion = addresses.find(x => x.id === id)?.region || formRegion; }
   if (act === 'cancel') editingId = null;
@@ -539,8 +572,10 @@ document.addEventListener('submit', e => {
   const entry = {name: String(fd.get('name') || '').trim(), addr: String(fd.get('addr') || '').trim(),
     queue: String(fd.get('queue') || ''), region: String(fd.get('region') || '')};
   if (!entry.name || !entry.queue || !REGIONS[entry.region]) return;
-  if (f.dataset.id === 'new') addresses.push({id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...entry});
-  else addresses = addresses.map(x => (x.id === f.dataset.id ? {...x, ...entry} : x));
+  if (f.dataset.id === 'new') {
+    activeId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    addresses.push({id: activeId, ...entry});
+  } else addresses = addresses.map(x => (x.id === f.dataset.id ? {...x, ...entry} : x));
   editingId = null;
   save();
   render();
