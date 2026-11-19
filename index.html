@@ -196,6 +196,7 @@ const REGIONS = {
 const KEY_ADDR = 'svitlo.addresses.v1';
 const KEY_FEED = 'svitlo.feed.v1';
 const KEY_FEEDS = 'svitlo.feeds.v2';
+const KEY_ACTIVE = 'svitlo.active.v1';
 const TZ = 'Europe/Kyiv';
 
 const store = {
@@ -211,7 +212,7 @@ let fetchState = 'idle';
 let editingId = addresses.length ? null : 'new';
 let formRegion = addresses.at(-1)?.region || 'dnipro';
 let confirmId = null;
-let activeId = null;
+let activeId = store.get(KEY_ACTIVE);
 
 function usedRegions() {
   const set = new Set(addresses.map(a => a.region));
@@ -541,6 +542,7 @@ document.addEventListener('click', e => {
   if (act === 'refresh') { refresh(); return; }
   if (act === 'tab') {
     activeId = id;
+    store.set(KEY_ACTIVE, activeId);
     render();
     const gap = document.getElementById('cards').getBoundingClientRect().top - document.getElementById('tabs').getBoundingClientRect().bottom;
     if (gap < 0) window.scrollBy({top: gap - 16});
@@ -575,6 +577,7 @@ document.addEventListener('submit', e => {
   if (f.dataset.id === 'new') {
     activeId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     addresses.push({id: activeId, ...entry});
+    store.set(KEY_ACTIVE, activeId);
   } else addresses = addresses.map(x => (x.id === f.dataset.id ? {...x, ...entry} : x));
   editingId = null;
   save();
